@@ -22,7 +22,7 @@ echo "🔍 pre-push 审查范围: $(echo "$base" | cut -c1-8)..$(echo "$local_sh
 
 # ---------- 1) ruff 静态检查 ----------
 if ! command -v ruff >/dev/null 2>&1; then
-    echo "📦 本地未安装 ruff，尝试自动安装..."
+    echo "📦 本地未安装 ruff, 尝试自动安装..."
     pip install -q ruff 2>/dev/null || echo "⚠️ ruff 安装失败，跳过静态检查"
 fi
 if command -v ruff >/dev/null 2>&1; then
@@ -30,7 +30,7 @@ if command -v ruff >/dev/null 2>&1; then
     if [ -n "$changed_py" ]; then
         echo "$changed_py" | while read -r f; do echo "  ruff 检查: $f"; done
         if ! ruff check $changed_py; then
-            echo "❌ ruff 检查未通过，push 已中止"
+            echo "❌ ruff 检查未通过, push 已中止"
             echo "   修复后重试，或 git push --no-verify 强制跳过"
             exit 1
         fi
@@ -42,14 +42,18 @@ fi
 
 # ---------- 2) AI 审查（可用 AI_REVIEW_ON_PUSH=0 关闭） ----------
 if [ "${AI_REVIEW_ON_PUSH:-1}" = "0" ]; then
-    echo "ℹ️ AI_REVIEW_ON_PUSH=0，跳过 AI 审查"
+    echo "ℹ️ AI_REVIEW_ON_PUSH=0, 跳过 AI 审查"
     exit 0
 fi
 
 # 加载密钥：优先已导出的环境变量，其次逐层找 .env（支持 ${VAR} 引用式写法）
+# 查找目录以 git 钩子的工作目录为基准——git 保证钩子运行于仓库根，故相对路径稳定
 load_env_var() {
     local name="$1" raw inner val f line
-    if [ -n "${!name:-}" ]; then return 0; fi
+    if [ -n "${!name:-}" ]; then
+        echo "  ↳ $name: 来自进程环境变量"
+        return 0
+    fi
     for f in ".env" "code/chapter6/AutoGenDemo/.env"; do
         if [ -f "$f" ]; then
             line=$(grep -E "^${name}=" "$f" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
@@ -57,9 +61,15 @@ load_env_var() {
                 if [[ "$line" == *'${'* ]]; then          # 形如 ${FREELLAMA_API_KEY}
                     inner="${line//[${}]/}"
                     val="${!inner:-}"
-                    if [ -n "$val" ]; then export "$name=$val"; return 0; fi
+                    if [ -n "$val" ]; then
+                        export "$name=$val"
+                        echo "  ↳ $name: 来自 $f（经 \${$inner} 间接引用）"
+                        return 0
+                    fi
                 else
-                    export "$name=$line"; return 0
+                    export "$name=$line"
+                    echo "  ↳ $name: 来自 $f"
+                    return 0
                 fi
             fi
         fi
@@ -67,6 +77,7 @@ load_env_var() {
     return 1
 }
 
+echo "🔑 密钥加载（工作目录: $PWD）："
 load_env_var LLM_API_KEY || true
 load_env_var LLM_BASE_URL || true
 load_env_var LLM_MODEL_ID || true
