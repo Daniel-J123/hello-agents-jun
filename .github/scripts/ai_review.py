@@ -3,29 +3,35 @@
 Push 触发的 AI 代码审查脚本（零第三方依赖）。
 
 流程：
-  1. 用 git 取本次 push 的 diff（prefer 事件对比区间，回退 HEAD~1）
+  1. 用 git 取本次 push 的 diff(prefer 事件对比区间，回退 HEAD~1)
   2. 调 OpenAI 兼容接口让模型审查代码
-  3. 结果写入 GitHub Step Summary（$GITHUB_STEP_SUMMARY），并可选评论到 commit
+  3. 结果写入 GitHub Step Summary(GITHUB_STEP_SUMMARY),并可选评论到 commit
 
 所需环境变量：
-  LLM_API_KEY    必填，LLM 服务商密钥
+  LLM_API_KEY    必填, LLM 服务商密钥
   LLM_BASE_URL   选填，默认 https://api.deepseek.com/v1
   LLM_MODEL_ID   选填，默认 deepseek-chat
   BEFORE/AFTER   GitHub push 事件自带的 commit 区间（可选）
 """
 
+import io
 import json
 import os
 import subprocess
 import sys
 import urllib.request
 
+# Windows 控制台默认 GBK，打印模型输出中的特殊字符会崩，强制 UTF-8
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 MAX_DIFF_CHARS = 60_000  # 超长 diff 截断，保护 token 消耗
 
-SYSTEM_PROMPT = """你是严格的代码审查员。审查下面的 git diff，用中文按以下固定格式输出（三段标题必须原样保留，便于程序解析）：
+SYSTEM_PROMPT = """你是严格的代码审查员。审查下面的 git diff, 用中文按以下固定格式输出（三段标题必须原样保留，便于程序解析）：
 
 ## 必须修复
-逻辑错误、密钥硬编码、异常吞掉、资源泄漏等必须修改的问题，每条注明文件与行号。
+逻辑错误、密钥硬编码、异常吞掉、资源泄漏等必须修改的问题, 每条注明文件与行号。
 若没有，此段只写两个字：无
 
 ## 建议改进
@@ -34,7 +40,7 @@ SYSTEM_PROMPT = """你是严格的代码审查员。审查下面的 git diff，�
 ## 亮点
 值得肯定的做法；若没有则写：无
 
-保持简洁，不要复述 diff 内容。"""
+保持简洁，不要复述 diff 内容."""
 
 
 def run_git(*args: str) -> str:
@@ -66,6 +72,7 @@ def call_llm(diff: str) -> str:
             {"role": "user", "content": f"```diff\n{diff}\n```"},
         ],
         "temperature": 0.2,
+        "max_tokens": 2048,  # 推理型模型先输出思考再给结论，需留足空间
     }
     req = urllib.request.Request(
         f"{base}/chat/completions",
@@ -76,9 +83,15 @@ def call_llm(diff: str) -> str:
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=300) as resp:
         data = json.loads(resp.read().decode("utf-8"))
-    return data["choices"][0]["message"]["content"]
+    msg = data["choices"][0]["message"]
+    content = msg.get("content") or ""
+    if not content.strip():
+        # 推理型模型（如 R1 风格）：正式回答前的思考放在 reasoning_content，
+        # 若 max_tokens 截断则 content 可能为空，回退取思考内容
+        content = msg.get("reasoning_content") or ""
+    return content
 
 
 def has_blockers(review: str) -> bool:
@@ -94,16 +107,16 @@ def has_blockers(review: str) -> bool:
 
 def main() -> int:
     if not os.environ.get("LLM_API_KEY"):
-        print("::warning::未配置 LLM_API_KEY secret，跳过 AI 审查")
+        print("::warning::未配置 LLM_API_KEY secret, 跳过 AI 审查")
         return 0
 
     diff, desc = get_diff()
     if not diff.strip():
-        print("没有可审查的 diff（可能是分支删除或空提交），跳过。")
+        print("没有可审查的 diff(可能是分支删除或空提交), 跳过。")
         return 0
     if len(diff) > MAX_DIFF_CHARS:
         diff = diff[:MAX_DIFF_CHARS] + "\n... (diff 过长，已截断)"
-    print(f"审查范围: {desc}，diff 长度 {len(diff)} 字符")
+    print(f"审查范围: {desc}, diff 长度 {len(diff)} 字符")
 
     try:
         review = call_llm(diff)
@@ -114,12 +127,12 @@ def main() -> int:
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as f:
-            f.write(f"## 🤖 AI 代码审查（{desc}）\n\n{review}\n")
+            f.write(f"## 🤖 AI 代码审查({desc})\n\n{review}\n")
 
     print("\n" + "=" * 50 + "\n" + review + "\n" + "=" * 50)
 
     if has_blockers(review):
-        print("::error::AI 审查发现【必须修复】级问题（本地 pre-push 会中止 push）")
+        print("::error::AI 审查发现【必须修复】级问题(本地 pre-push 会中止 push)")
         return 2  # 2 = 有阻塞问题；pre-push 钩子据此拦截
     return 0
 
