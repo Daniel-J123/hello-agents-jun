@@ -43,7 +43,7 @@ def search(query: str) -> str:
             return "\n\n".join(snippets)
 
         
-        return f"对不的信息。"
+        return f"对不起, 没有找到关于 '{query}' 的信息。"
 
     except Exception as e:
         return f"搜索时发生错误: {e}"

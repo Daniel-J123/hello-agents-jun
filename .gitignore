@@ -167,3 +167,17 @@ test_*.py
 !test_tools.py
 .workbuddy/
 memory/
+# Hello-Agents 本地自包含环境（运行时与缓存，不提交）
+local-dev/python/
+local-dev/cache/
+local-dev/.venv/
+local-dev/tmp/
+# 离线包产物（大文件，不入库）
+offline-centos7-ch7/wheels/
+offline-centos7-ch7/runtime/
+hello-agents-ch7-centos7.tar.gz
+# 全量离线包产物
+offline-centos7-all/*
+*.tar
+
+local-dev/*
