@@ -26,15 +26,15 @@ for cand in "local-dev/.venv/Scripts/python.exe" "local-dev/.venv/bin/python"; d
     if [ -x "$cand" ]; then PROJECT_PY="$cand"; break; fi
 done
 if [ -z "$PROJECT_PY" ]; then
-    echo "❌ 找不到项目 Python（local-dev/.venv），push 已中止"
-    echo "   请先创建项目环境: bash local-dev/env.sh （或 Windows: local-dev/bootstrap.ps1）"
+    echo "❌ 找不到项目 Python (local-dev/.venv), push 已中止"
+    echo "   请先创建项目环境: bash local-dev/env.sh (或 Windows: local-dev/bootstrap.ps1)"
     exit 1
 fi
 echo "🐍 项目 Python: $PROJECT_PY"
 
 # ---------- 1) ruff 静态检查（只装进项目 venv，不碰系统） ----------
 if ! "$PROJECT_PY" -m ruff --version >/dev/null 2>&1; then
-    echo "📦 项目 venv 中未安装 ruff，正在安装到项目环境..."
+    echo "📦 项目 venv 中未安装 ruff, 正在安装到项目环境..."
     "$PROJECT_PY" -m pip install -q ruff 2>/dev/null || echo "⚠️ ruff 安装失败，跳过静态检查"
 fi
 if "$PROJECT_PY" -m ruff --version >/dev/null 2>&1; then
@@ -42,7 +42,7 @@ if "$PROJECT_PY" -m ruff --version >/dev/null 2>&1; then
     if [ -n "$changed_py" ]; then
         echo "$changed_py" | while read -r f; do echo "  ruff 检查: $f"; done
         if ! "$PROJECT_PY" -m ruff check $changed_py; then
-            echo "❌ ruff 检查未通过，push 已中止"
+            echo "❌ ruff 检查未通过, push 已中止"
             echo "   修复后重试，或 git push --no-verify 强制跳过"
             exit 1
         fi
@@ -95,7 +95,7 @@ load_env_var LLM_BASE_URL || true
 load_env_var LLM_MODEL_ID || true
 
 if [ -z "${LLM_API_KEY:-}" ]; then
-    echo "⚠️ 未找到 LLM_API_KEY(环境变量/.env 均无)，跳过 AI 审查，仅 ruff 已通过"
+    echo "⚠️ 未找到 LLM_API_KEY (环境变量/.env 均无)，跳过 AI 审查，仅 ruff 已通过"
     exit 0
 fi
 
