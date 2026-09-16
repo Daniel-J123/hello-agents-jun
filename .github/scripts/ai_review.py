@@ -22,15 +22,23 @@ import urllib.request
 
 MAX_DIFF_CHARS = 60_000  # 超长 diff 截断，保护 token 消耗
 
-SYSTEM_PROMPT = """你是严格的代码审查员。审查下面的 git diff，输出中文审查意见：
-1. **必须修复**：逻辑错误、密钥硬编码、异常吞掉、资源泄漏等
-2. **建议改进**：命名、重复代码、可读性
-3. **亮点**：值得肯定的做法（如有）
-每条注明文件与行号。若整体没有问题，直接说明。保持简洁，不要复述 diff。"""
+SYSTEM_PROMPT = """你是严格的代码审查员。审查下面的 git diff，用中文按以下固定格式输出（三段标题必须原样保留，便于程序解析）：
+
+## 必须修复
+逻辑错误、密钥硬编码、异常吞掉、资源泄漏等必须修改的问题，每条注明文件与行号。
+若没有，此段只写两个字：无
+
+## 建议改进
+命名、重复代码、可读性等方面的非阻塞建议。
+
+## 亮点
+值得肯定的做法；若没有则写：无
+
+保持简洁，不要复述 diff 内容。"""
 
 
 def run_git(*args: str) -> str:
-    r = subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8")
+    r = subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8", check=False)
     return r.stdout if r.returncode == 0 else ""
 
 
@@ -73,6 +81,17 @@ def call_llm(diff: str) -> str:
     return data["choices"][0]["message"]["content"]
 
 
+def has_blockers(review: str) -> bool:
+    """解析'## 必须修复'段，非'无'即视为存在必须修复的问题。"""
+    import re
+
+    m = re.search(r"##\s*必须修复\s*\n(.*?)(?=\n##|\Z)", review, re.DOTALL)
+    if not m:
+        return False
+    section = m.group(1).strip()
+    return section not in ("", "无")
+
+
 def main() -> int:
     if not os.environ.get("LLM_API_KEY"):
         print("::warning::未配置 LLM_API_KEY secret，跳过 AI 审查")
@@ -88,7 +107,7 @@ def main() -> int:
 
     try:
         review = call_llm(diff)
-    except Exception as e:  # 网络或配额问题不应阻塞 CI
+    except Exception as e:  # noqa: BLE001 — 网络/配额等任何失败都不应阻塞 CI
         print(f"::error::AI 审查调用失败: {e}")
         return 1
 
@@ -98,6 +117,10 @@ def main() -> int:
             f.write(f"## 🤖 AI 代码审查（{desc}）\n\n{review}\n")
 
     print("\n" + "=" * 50 + "\n" + review + "\n" + "=" * 50)
+
+    if has_blockers(review):
+        print("::error::AI 审查发现【必须修复】级问题（本地 pre-push 会中止 push）")
+        return 2  # 2 = 有阻塞问题；pre-push 钩子据此拦截
     return 0
 
 

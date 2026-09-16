@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# pre-push 钩子：push 前本地审查，问题不落地
+#   流程: ruff 静态检查 -> AI 审查本次 diff -> 有问题则中止 push
+#   跳过本钩子:      git push --no-verify
+#   只关 AI 审查:    AI_REVIEW_ON_PUSH=0 git push
+#   启用(换机器后):  git config core.hooksPath .githooks
+set -uo pipefail
+
+read -r local_ref local_sha remote_ref remote_sha
+ZERO=0000000000000000000000000000000000000000
+
+# 删除远端分支的 push，无代码，直接放行
+[ "$local_sha" = "$ZERO" ] && exit 0
+
+# 计算审查基线：新分支用与 upstream/main 的分叉点，否则用远端当前 SHA
+if [ "$remote_sha" = "$ZERO" ]; then
+    base=$(git merge-base upstream/main "$local_sha" 2>/dev/null || git rev-parse "${local_sha}~1")
+else
+    base="$remote_sha"
+fi
+echo "🔍 pre-push 审查范围: $(echo "$base" | cut -c1-8)..$(echo "$local_sha" | cut -c1-8)"
+
+# ---------- 1) ruff 静态检查 ----------
+if ! command -v ruff >/dev/null 2>&1; then
+    echo "📦 本地未安装 ruff，尝试自动安装..."
+    pip install -q ruff 2>/dev/null || echo "⚠️ ruff 安装失败，跳过静态检查"
+fi
+if command -v ruff >/dev/null 2>&1; then
+    changed_py=$(git diff --name-only --diff-filter=ACMR "$base..$local_sha" -- '*.py')
+    if [ -n "$changed_py" ]; then
+        echo "$changed_py" | while read -r f; do echo "  ruff 检查: $f"; done
+        if ! ruff check $changed_py; then
+            echo "❌ ruff 检查未通过，push 已中止"
+            echo "   修复后重试，或 git push --no-verify 强制跳过"
+            exit 1
+        fi
+        echo "✅ ruff 通过"
+    else
+        echo "ℹ️ 本次无 Python 改动，跳过 ruff"
+    fi
+fi
+
+# ---------- 2) AI 审查（可用 AI_REVIEW_ON_PUSH=0 关闭） ----------
+if [ "${AI_REVIEW_ON_PUSH:-1}" = "0" ]; then
+    echo "ℹ️ AI_REVIEW_ON_PUSH=0，跳过 AI 审查"
+    exit 0
+fi
+
+# 加载密钥：优先已导出的环境变量，其次逐层找 .env（支持 ${VAR} 引用式写法）
+load_env_var() {
+    local name="$1" raw inner val f line
+    if [ -n "${!name:-}" ]; then return 0; fi
+    for f in ".env" "code/chapter6/AutoGenDemo/.env"; do
+        if [ -f "$f" ]; then
+            line=$(grep -E "^${name}=" "$f" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+            if [ -n "$line" ]; then
+                if [[ "$line" == *'${'* ]]; then          # 形如 ${FREELLAMA_API_KEY}
+                    inner="${line//[${}]/}"
+                    val="${!inner:-}"
+                    if [ -n "$val" ]; then export "$name=$val"; return 0; fi
+                else
+                    export "$name=$line"; return 0
+                fi
+            fi
+        fi
+    done
+    return 1
+}
+
+load_env_var LLM_API_KEY || true
+load_env_var LLM_BASE_URL || true
+load_env_var LLM_MODEL_ID || true
+
+if [ -z "${LLM_API_KEY:-}" ]; then
+    echo "⚠️ 未找到 LLM_API_KEY（环境变量/.env 均无），跳过 AI 审查，仅 ruff 已通过"
+    exit 0
+fi
+
+# 复用 CI 同款审查脚本：0=无问题 1=调用失败 2=有必须修复问题
+BEFORE="$base" AFTER="$local_sha" python .github/scripts/ai_review.py
+rc=$?
+case $rc in
+    0) echo "✅ AI 审查通过，放行 push" ;;
+    2) echo "❌ AI 审查发现【必须修复】级问题，push 已中止"
+       echo "   完整意见见上方输出；确认可推: git push --no-verify"
+       exit 1 ;;
+    *) echo "⚠️ AI 审查调用失败（网络/密钥/配额），本次不拦截"
+       echo "   远端 CI 仍会尝试兜底审查；修复网络后可恢复本地拦截" ;;
+esac
