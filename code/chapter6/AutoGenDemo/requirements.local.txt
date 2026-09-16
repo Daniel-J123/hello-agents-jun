@@ -1,0 +1,44 @@
+# 第 6 章 AutoGenDemo 实际使用的依赖清单（Git Bash + uv）
+#
+# 为什么不直接用本目录自带的 requirements.txt：那份文件有两行是错的。
+#   asyncio  -> 标准库自带，PyPI 上那个是给 Python 2/3.4 的桩包，装了没有
+#               意义还可能造成干扰，删掉。
+#   dotenv   -> 代码用的是 from dotenv import load_dotenv，真正的提供方是
+#               python-dotenv；PyPI 上单独的 dotenv 是个废弃占位包，两者争用
+#               同一个顶层模块名，同时装会互相覆盖 site-packages/dotenv/，
+#               表现为 load_dotenv 时好时坏。这里改成 python-dotenv。
+#
+# 为什么要单独一个 venv：AutoGen / LangGraph / AgentScope / CAMEL 的传递依赖
+# 彼此冲突（pydantic、openai、numpy 的版本区间互斥），混进 local-dev/.venv
+# 会把第 7-16 章一起带坏。
+#
+# 安装： bash bootstrap.sh
+# 载入： . ./env.sh         （开头的点 + 空格，必须 source）
+
+# --- AutoGen 本体 -------------------------------------------------------
+# AutoGen 自 2025-10 起进入 maintenance mode，稳定线停在 0.7.5，不会再有新
+# 功能。教程标注 v0.7.4，架构一致，直接跟最新稳定版即可。
+# agentchat 与 ext 要对齐同一版本，否则 core 可能被两侧拉成不同小版本。
+autogen-agentchat
+autogen-ext[openai,azure]
+
+# --- 案例代码真正需要的东西 --------------------------------------------
+openai>=1.41.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# --- 只有跑 output.py（团队协作生成的比特币应用）才需要 ----------------
+# 想先省时间可以注释掉下面三行，团队协作流程不受影响；
+# 但要 streamlit run output.py 就必须留着。
+streamlit>=1.28.0
+plotly>=5.15.0
+pandas>=2.0.0
+
+# --- 本次实测解析结果（Git Bash / uv / Python 3.11.15）------------------
+# autogen-agentchat = autogen-core = autogen-ext = 0.7.5（三者自动对齐）
+# openai 3.13.0    教程只写 >=1.0.0，uv 会一路解析到 3.x。实测与 autogen_ext
+#                  的 OpenAIChatCompletionClient 通信正常；若日后遇到 4xx 或
+#                  参数异常，先临时改成 "openai>=1.41.0,<2" 重装再定位，
+#                  别第一时间怀疑 AutoGen。
+# streamlit 1.63.0 / pandas 3.0.5 / plotly 7.0.0 / python-dotenv 1.2.3
+# 共 69 个包，.venv 约 359 MB。要彻底锁死可整份换成 uv pip freeze 的输出。
