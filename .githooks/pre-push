@@ -20,17 +20,29 @@ else
 fi
 echo "🔍 pre-push 审查范围: $(echo "$base" | cut -c1-8)..$(echo "$local_sha" | cut -c1-8)"
 
-# ---------- 1) ruff 静态检查 ----------
-if ! command -v ruff >/dev/null 2>&1; then
-    echo "📦 本地未安装 ruff, 尝试自动安装..."
-    pip install -q ruff 2>/dev/null || echo "⚠️ ruff 安装失败，跳过静态检查"
+# ---------- 0) 项目 Python（必须用项目自己的 venv，绝不碰系统 Python） ----------
+PROJECT_PY=""
+for cand in "local-dev/.venv/Scripts/python.exe" "local-dev/.venv/bin/python"; do
+    if [ -x "$cand" ]; then PROJECT_PY="$cand"; break; fi
+done
+if [ -z "$PROJECT_PY" ]; then
+    echo "❌ 找不到项目 Python（local-dev/.venv），push 已中止"
+    echo "   请先创建项目环境: bash local-dev/env.sh （或 Windows: local-dev/bootstrap.ps1）"
+    exit 1
 fi
-if command -v ruff >/dev/null 2>&1; then
+echo "🐍 项目 Python: $PROJECT_PY"
+
+# ---------- 1) ruff 静态检查（只装进项目 venv，不碰系统） ----------
+if ! "$PROJECT_PY" -m ruff --version >/dev/null 2>&1; then
+    echo "📦 项目 venv 中未安装 ruff，正在安装到项目环境..."
+    "$PROJECT_PY" -m pip install -q ruff 2>/dev/null || echo "⚠️ ruff 安装失败，跳过静态检查"
+fi
+if "$PROJECT_PY" -m ruff --version >/dev/null 2>&1; then
     changed_py=$(git diff --name-only --diff-filter=ACMR "$base..$local_sha" -- '*.py')
     if [ -n "$changed_py" ]; then
         echo "$changed_py" | while read -r f; do echo "  ruff 检查: $f"; done
-        if ! ruff check $changed_py; then
-            echo "❌ ruff 检查未通过, push 已中止"
+        if ! "$PROJECT_PY" -m ruff check $changed_py; then
+            echo "❌ ruff 检查未通过，push 已中止"
             echo "   修复后重试，或 git push --no-verify 强制跳过"
             exit 1
         fi
@@ -87,8 +99,8 @@ if [ -z "${LLM_API_KEY:-}" ]; then
     exit 0
 fi
 
-# 复用 CI 同款审查脚本：0=无问题 1=调用失败 2=有必须修复问题
-BEFORE="$base" AFTER="$local_sha" python .github/scripts/ai_review.py
+# 复用 CI 同款审查脚本：0=无问题 1=调用失败 2=有必须修复问题（用项目 Python）
+BEFORE="$base" AFTER="$local_sha" "$PROJECT_PY" .github/scripts/ai_review.py
 rc=$?
 case $rc in
     0) echo "✅ AI 审查通过，放行 push" ;;
