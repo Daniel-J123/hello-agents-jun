@@ -45,11 +45,11 @@ class ReActAgent:
             messages = [{"role": "user", "content": prompt}]
             response_text = self.llm_client.think(messages=messages)
             if not response_text:
-                print("错误：LLM未能返回有效响应。"); break
+                print("错误: LLM未能返回有效响应。"); break
 
             thought, action = self._parse_output(response_text)
             if thought: print(f"🤔 思考: {thought}")
-            if not action: print("警告：未能解析出有效的Action，流程终止。"); break
+            if not action: print("警告: 未能解析出有效的Action, 流程终止。"); break
             
             if action.startswith("Finish"):
                 # 如果是Finish指令，提取最终答案并结束
@@ -59,7 +59,7 @@ class ReActAgent:
             
             tool_name, tool_input = self._parse_action(action)
             if not tool_name or not tool_input:
-                self.history.append("Observation: 无效的Action格式，请检查。"); continue
+                self.history.append("Observation: 无效的Action格式, 请检查。"); continue
 
             print(f"🎬 行动: {tool_name}[{tool_input}]")
             tool_function = self.tool_executor.getTool(tool_name)
@@ -95,5 +95,5 @@ if __name__ == '__main__':
     search_desc = "一个网页搜索引擎。当你需要回答关于时事、事实以及在你的知识库中找不到的信息时，应使用此工具。"
     tool_executor.registerTool("Search", search_desc, search)
     agent = ReActAgent(llm_client=llm, tool_executor=tool_executor)
-    question = "华为最新的手机是哪一款？它的主要卖点是什么？"
+    question = "2026年华为最新的手机是哪一款? 它的主要卖点是什么?"
     agent.run(question)

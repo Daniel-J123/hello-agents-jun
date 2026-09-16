@@ -15,7 +15,7 @@ def search(query: str) -> str:
     try:
         api_key = os.getenv("SERPAPI_API_KEY")
         if not api_key:
-            return "错误：SERPAPI_API_KEY 未在 .env 文件中配置。"
+            return "错误: SERPAPI_API_KEY 未在 .env 文件中配置。"
 
         params = {
             "engine": "google",
@@ -36,14 +36,14 @@ def search(query: str) -> str:
         if "knowledge_graph" in results and "description" in results["knowledge_graph"]:
             return results["knowledge_graph"]["description"]
         if "organic_results" in results and results["organic_results"]:
-            # 如果没有直接答案，则返回前三个有机结果的摘要
             snippets = [
-                f"[{i+1}] {res.get('title', '')}\n{res.get('snippet', '')}"
-                for i, res in enumerate(results["organic_results"][:3])
+                f"[{i+1}] {res.get('title','')}\n{res.get('snippet','')}\n{res.get('link','')}"
+                for i, res in enumerate(results["organic_results"][:5])
             ]
             return "\n\n".join(snippets)
+
         
-        return f"对不起，没有找到关于 '{query}' 的信息。"
+        return f"对不的信息。"
 
     except Exception as e:
         return f"搜索时发生错误: {e}"
@@ -75,7 +75,7 @@ class ToolExecutor:
 
     def getAvailableTools(self) -> str:
         """
-        获取所有可用工具的格式化描述字符串。
+        获取所有可用工具的格式化描述字符串, 方便大模型能够看懂工具功能说明
         """
         return "\n".join([
             f"- {name}: {info['description']}" 
@@ -97,9 +97,9 @@ if __name__ == '__main__':
     print(toolExecutor.getAvailableTools())
 
     # 4. 智能体的Action调用，这次我们问一个实时性的问题
-    print("\n--- 执行 Action: Search['英伟达最新的GPU型号是什么'] ---")
+    print("\n--- 执行 Action: Search['华为最新手机型号和定价'] ---")
     tool_name = "Search"
-    tool_input = "英伟达最新的GPU型号是什么"
+    tool_input = "华为最新手机型号和定价"
 
     tool_function = toolExecutor.getTool(tool_name)
     if tool_function:

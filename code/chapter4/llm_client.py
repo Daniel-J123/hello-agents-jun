@@ -9,7 +9,7 @@ load_dotenv()
 class HelloAgentsLLM:
     """
     为本书 "Hello Agents" 定制的LLM客户端。
-    它用于调用任何兼容OpenAI接口的服务，并默认使用流式响应。
+    它用于调用任何兼容OpenAI接口的服务, 并默认使用流式响应。
     """
     def __init__(self, model: str = None, apiKey: str = None, baseUrl: str = None, timeout: int = None):
         """
@@ -35,19 +35,23 @@ class HelloAgentsLLM:
                 model=self.model,
                 messages=messages,
                 temperature=temperature,
-                stream=True,
+                stream=True,    # 模型每生成1-2个token，就以一个 `chunk` 推给用户
             )
             
             # 处理流式响应
-            print("✅ 大语言模型响应成功:")
+            print("✅ 大语言模型响应成功:\n")
             collected_content = []
             for chunk in response:
                 if not chunk.choices:
                     continue
+                # 取出这个块的文字碎片
                 content = chunk.choices[0].delta.content or ""
+                # 收到一个字就打印一个字，流式输出
                 print(content, end="", flush=True)
+                # 将字符块存起来
                 collected_content.append(content)
             print()  # 在流式输出结束后换行
+            # 模型输出完整字符串给智能体做解析
             return "".join(collected_content)
 
         except Exception as e:
@@ -57,18 +61,23 @@ class HelloAgentsLLM:
 # --- 客户端使用示例 ---
 if __name__ == '__main__':
     try:
-        llmClient = HelloAgentsLLM()
-        
-        exampleMessages = [
-            {"role": "system", "content": "You are a helpful assistant that writes Python code."},
-            {"role": "user", "content": "写一个快速排序算法"}
+        llmClient = HelloAgentsLLM()    # 未传入具体参数,自动读取环境变量文件进行模型信息配置
+        messages = [
+            {"role": "system", "content": "You are a helpful personal assistant."}
         ]
-        
-        print("--- 调用LLM ---")
-        responseText = llmClient.think(exampleMessages)
-        if responseText:
-            print("\n\n--- 完整模型响应 ---")
-            print(responseText)
+        while True:
+            user_input = input("\n用户: ")
+            if user_input in ["exit", "quit"]:
+                break
+
+            messages.append({"role": "user", "content": user_input})
+            print("\n\n--- 调用LLM ---")
+            temperature = 0.1
+            responseText = llmClient.think(messages, temperature)
+            if responseText:
+                # print(f"\n助手: {responseText}")
+                # 存储历史对话, 实现下一轮连贯对话
+                messages.append({"role": "assistant", "content": responseText})
 
     except ValueError as e:
         print(e)
