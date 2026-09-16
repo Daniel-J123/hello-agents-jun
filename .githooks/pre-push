@@ -63,7 +63,7 @@ load_env_var() {
                     val="${!inner:-}"
                     if [ -n "$val" ]; then
                         export "$name=$val"
-                        echo "  ↳ $name: 来自 $f（经 \${$inner} 间接引用）"
+                        echo "  ↳ $name: 来自 $f (经 \${$inner} 间接引用)"
                         return 0
                     fi
                 else
@@ -77,13 +77,13 @@ load_env_var() {
     return 1
 }
 
-echo "🔑 密钥加载（工作目录: $PWD）："
+echo "🔑 密钥加载 (工作目录: $PWD): "
 load_env_var LLM_API_KEY || true
 load_env_var LLM_BASE_URL || true
 load_env_var LLM_MODEL_ID || true
 
 if [ -z "${LLM_API_KEY:-}" ]; then
-    echo "⚠️ 未找到 LLM_API_KEY（环境变量/.env 均无），跳过 AI 审查，仅 ruff 已通过"
+    echo "⚠️ 未找到 LLM_API_KEY(环境变量/.env 均无)，跳过 AI 审查，仅 ruff 已通过"
     exit 0
 fi
 
@@ -92,7 +92,7 @@ BEFORE="$base" AFTER="$local_sha" python .github/scripts/ai_review.py
 rc=$?
 case $rc in
     0) echo "✅ AI 审查通过，放行 push" ;;
-    2) echo "❌ AI 审查发现【必须修复】级问题，push 已中止"
+    2) echo "❌ AI 审查发现【必须修复】级问题, push 已中止"
        echo "   完整意见见上方输出；确认可推: git push --no-verify"
        exit 1 ;;
     *) echo "⚠️ AI 审查调用失败（网络/密钥/配额），本次不拦截"
