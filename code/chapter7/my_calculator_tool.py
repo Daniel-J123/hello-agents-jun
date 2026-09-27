@@ -17,6 +17,8 @@ def my_calculate(expression: str) -> str:
         ast.Sub: operator.sub,      # -
         ast.Mult: operator.mul,     # *
         ast.Div: operator.truediv,  # /
+        ast.USub: operator.neg,     # 一元负号, 如 -3 (AST里-1是UnaryOp不是常量!)
+        ast.UAdd: operator.pos,     # 一元正号, 如 +3
     }
 
     # 支持的基本函数
@@ -29,8 +31,10 @@ def my_calculate(expression: str) -> str:
         node = ast.parse(expression, mode='eval')
         result = _eval_node(node.body, operators, functions)
         return str(result)
-    except:
-        return "计算失败，请检查表达式格式"
+    except (SyntaxError, TypeError, ValueError, ZeroDivisionError) as e:
+        # 点名捕获: 不吞 Ctrl+C(SystemExit/KeyboardInterrupt), 且把真实原因返回给agent
+        # (工具的错误信息会被agent看到并用于自我修正, 越具体重试成功率越高)
+        return f"计算失败: {e} (请检查表达式格式)"
 
 def _eval_node(node, operators, functions):
     """简化的表达式求值"""
@@ -40,7 +44,16 @@ def _eval_node(node, operators, functions):
         left = _eval_node(node.left, operators, functions)
         right = _eval_node(node.right, operators, functions)
         op = operators.get(type(node.op))
+        if op is None:
+            # 显式报不支持的运算符(如 ** %), 而不是模糊的NoneType错误
+            raise TypeError(f"不支持的运算符: {type(node.op).__name__}")
         return op(left, right)
+    elif isinstance(node, ast.UnaryOp):
+        val = _eval_node(node.operand, operators, functions)
+        op = operators.get(type(node.op))
+        if op is None:
+            raise TypeError(f"不支持的一元运算符: {type(node.op).__name__}")
+        return op(val)
     elif isinstance(node, ast.Call):
         func_name = node.func.id
         if func_name in functions:
