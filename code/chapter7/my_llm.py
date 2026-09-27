@@ -1,16 +1,17 @@
 # my_llm.py
 import os
-from typing import Optional
-from openai import OpenAI
+
 from hello_agents import HelloAgentsLLM
+from openai import OpenAI
+
 
 class MyLLM(HelloAgentsLLM):
     def __init__(
         self,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        provider: Optional[str] = "auto",
+        model: str | None = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        provider: str | None = "auto",
         **kwargs
     ):
         # 检查provider是否为我们想处理的'modelscope'

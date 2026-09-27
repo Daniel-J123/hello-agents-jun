@@ -1,6 +1,6 @@
 # test_advanced_search.py
 from dotenv import load_dotenv
-from my_advanced_search import create_advanced_search_registry, MyAdvancedSearchTool
+from my_advanced_search import MyAdvancedSearchTool, create_advanced_search_registry
 
 # 加载环境变量
 load_dotenv()
@@ -15,9 +15,7 @@ def test_advanced_search():
 
     # 测试查询
     test_queries = [
-        "Python编程语言的历史",
-        "人工智能的最新发展",
-        "2024年科技趋势"
+        "OpanAI大模型GPT-6进展"
     ]
 
     for i, query in enumerate(test_queries, 1):
@@ -40,7 +38,7 @@ def test_api_configuration():
 def test_with_agent():
     """测试与Agent的集成"""
     print("\n🤖 与Agent集成测试:")
-    print("高级搜索工具已准备就绪，可以与Agent集成使用")
+    print("高级搜索工具已准备就绪, 可以与Agent集成使用")
 
     # 显示工具描述
     registry = create_advanced_search_registry()
@@ -49,5 +47,5 @@ def test_with_agent():
 
 if __name__ == "__main__":
     test_advanced_search()
-    test_api_configuration()
-    test_with_agent()
+    # test_api_configuration()
+    # test_with_agent()

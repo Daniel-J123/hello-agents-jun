@@ -1,7 +1,8 @@
 # my_advanced_search.py
 import os
-from typing import Optional, List, Dict, Any
+
 from hello_agents import ToolRegistry
+
 
 class MyAdvancedSearchTool:
     """
@@ -13,7 +14,7 @@ class MyAdvancedSearchTool:
         self.name = "my_advanced_search"
         self.description = "智能搜索工具，支持多个搜索源，自动选择最佳结果"
         self.search_sources = []
-        self._setup_search_sources()
+        self._setup_search_sources()    # 构造类对象时进行初始化, 自动设置搜索源
 
     def _setup_search_sources(self):
         """设置可用的搜索源"""
@@ -30,7 +31,7 @@ class MyAdvancedSearchTool:
         # 检查SerpApi可用性
         if os.getenv("SERPAPI_API_KEY"):
             try:
-                import serpapi
+                import serpapi  # noqa: F401 — 仅探测serpapi包是否安装, 不直接使用
                 self.search_sources.append("serpapi")
                 print("✅ SerpApi搜索源已启用")
             except ImportError:
@@ -39,16 +40,16 @@ class MyAdvancedSearchTool:
         if self.search_sources:
             print(f"🔧 可用搜索源: {', '.join(self.search_sources)}")
         else:
-            print("⚠️ 没有可用的搜索源，请配置API密钥")
+            print("⚠️ 没有可用的搜索源, 请配置API密钥")
 
     def search(self, query: str) -> str:
         """执行智能搜索"""
         if not query.strip():
-            return "❌ 错误：搜索查询不能为空"
+            return "❌ 错误: 搜索查询不能为空"
 
         # 检查是否有可用的搜索源
         if not self.search_sources:
-            return """❌ 没有可用的搜索源，请配置以下API密钥之一：
+            return """❌ 没有可用的搜索源, 请配置以下API密钥之一: 
 
 1. Tavily API: 设置环境变量 TAVILY_API_KEY
    获取地址: https://tavily.com/
@@ -66,25 +67,25 @@ class MyAdvancedSearchTool:
                 if source == "tavily":
                     result = self._search_with_tavily(query)
                     if result and "未找到" not in result:
-                        return f"📊 Tavily AI搜索结果：\n\n{result}"
+                        return f"📊 Tavily AI搜索结果: \n\n{result}"
 
                 elif source == "serpapi":
                     result = self._search_with_serpapi(query)
                     if result and "未找到" not in result:
-                        return f"🌐 SerpApi Google搜索结果：\n\n{result}"
+                        return f"🌐 SerpApi Google搜索结果: \n\n{result}"
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — 多搜索源容错: 单源失败继续下一源
                 print(f"⚠️ {source} 搜索失败: {e}")
                 continue
 
-        return "❌ 所有搜索源都失败了，请检查网络连接和API密钥配置"
+        return "❌ 所有搜索源都失败, 请检查网络连接和API密钥配置"
 
     def _search_with_tavily(self, query: str) -> str:
         """使用Tavily搜索"""
         response = self.tavily_client.search(query=query, max_results=3)
 
         if response.get('answer'):
-            result = f"💡 AI直接答案：{response['answer']}\n\n"
+            result = f"💡 AI直接答案: {response['answer']}\n\n"
         else:
             result = ""
 
@@ -107,7 +108,7 @@ class MyAdvancedSearchTool:
 
         results = search.get_dict()
 
-        result = "🔗 Google搜索结果：\n"
+        result = "🔗 Google搜索结果: \n"
         if "organic_results" in results:
             for i, res in enumerate(results["organic_results"][:3], 1):
                 result += f"[{i}] {res.get('title', '')}\n"
@@ -125,7 +126,7 @@ def create_advanced_search_registry():
     # 注册搜索工具的方法作为函数
     registry.register_function(
         name="advanced_search",
-        description="高级搜索工具，整合Tavily和SerpAPI多个搜索源，提供更全面的搜索结果",
+        description="高级搜索工具, 整合Tavily和SerpAPI多个搜索源, 提供更全面的搜索结果",
         func=search_tool.search
     )
 

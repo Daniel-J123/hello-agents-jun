@@ -1,7 +1,9 @@
 # my_simple_agent.py
-from typing import Optional, Iterator
-from hello_agents import SimpleAgent, HelloAgentsLLM, Config, Message
 import re
+from collections.abc import Iterator
+
+from hello_agents import Config, HelloAgentsLLM, Message, SimpleAgent, ToolRegistry
+
 
 class MySimpleAgent(SimpleAgent):
     """
@@ -13,9 +15,9 @@ class MySimpleAgent(SimpleAgent):
         self,
         name: str,
         llm: HelloAgentsLLM,
-        system_prompt: Optional[str] = None,
-        config: Optional[Config] = None,
-        tool_registry: Optional['ToolRegistry'] = None,
+        system_prompt: str | None = None,
+        config: Config | None = None,
+        tool_registry: ToolRegistry | None = None,
         enable_tool_calling: bool = True
     ):
         super().__init__(name, llm, system_prompt, config)
@@ -145,7 +147,7 @@ class MySimpleAgent(SimpleAgent):
     def _execute_tool_call(self, tool_name: str, parameters: str) -> str:
         """执行工具调用"""
         if not self.tool_registry:
-            return f"❌ 错误：未配置工具注册表"
+            return "❌ 错误：未配置工具注册表"
 
         try:
             # 智能参数解析
@@ -162,8 +164,8 @@ class MySimpleAgent(SimpleAgent):
 
             return f"🔧 工具 {tool_name} 执行结果：\n{result}"
 
-        except Exception as e:
-            return f"❌ 工具调用失败：{str(e)}"
+        except Exception as e:  # noqa: BLE001 — 工具调用容错: 返回错误信息给上层
+            return f"❌ 工具调用失败：{e!s}"
 
     def _parse_tool_parameters(self, tool_name: str, parameters: str) -> dict:
         """智能解析工具参数"""
@@ -214,7 +216,7 @@ class MySimpleAgent(SimpleAgent):
         print("📝 实时响应: ", end="")
         for chunk in self.llm.stream_invoke(messages, **kwargs):
             full_response += chunk
-            print(chunk, end="", flush=True)
+            # print(chunk, end="", flush=True)
             yield chunk
 
         print()  # 换行
@@ -225,7 +227,7 @@ class MySimpleAgent(SimpleAgent):
         print(f"✅ {self.name} 流式响应完成")
 
     def add_tool(self, tool) -> None:
-        """添加工具到Agent（便利方法）"""
+        """添加工具到Agent(便利方法)"""
         if not self.tool_registry:
             from hello_agents import ToolRegistry
             self.tool_registry = ToolRegistry()
@@ -239,7 +241,7 @@ class MySimpleAgent(SimpleAgent):
         return self.enable_tool_calling and self.tool_registry is not None
     
     def remove_tool(self, tool_name: str) -> bool:
-        """移除工具（便利方法）"""
+        """移除工具(便利方法)"""
         if self.tool_registry:
             self.tool_registry.unregister(tool_name)
             return True

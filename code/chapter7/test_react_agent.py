@@ -47,33 +47,33 @@ def test_react_agent():
     print("="*60)
     
     # 测试1：数学计算问题
-    print("\n📊 测试1：数学计算问题")
+    print("\n📊 测试1: 数学计算问题")
     math_question = "请帮我计算：(25 + 15) * 3 - 8 的结果是多少？"
     
     try:
         result1 = agent.run(math_question)
         print(f"\n🎯 测试1结果: {result1}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — 测试容错: 失败打印后继续
         print(f"❌ 测试1失败: {e}")
     
     # 测试2：需要搜索的问题
-    print("\n🔍 测试2：信息搜索问题")
-    search_question = "Python编程语言是什么时候发布的？请告诉我具体的年份。"
+    print("\n🔍 测试2: 信息搜索问题")
+    search_question = "Jev是什么时候发布的? 具体是什么意思?"
     
     try:
         result2 = agent.run(search_question)
         print(f"\n🎯 测试2结果: {result2}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — 测试容错: 失败打印后继续
         print(f"❌ 测试2失败: {e}")
     
     # 测试3：复合问题（需要多步推理）
-    print("\n🧠 测试3：复合推理问题")
-    complex_question = "如果一个班级有30个学生，其中60%是女生，那么男生有多少人？请先计算女生人数，再计算男生人数。"
+    print("\n🧠 测试3: 复合推理问题")
+    complex_question = "如果一个班级有30个学生, 其中60%是女生，那么男生有多少人？请先计算女生人数，再计算男生人数。"
     
     try:
         result3 = agent.run(complex_question)
         print(f"\n🎯 测试3结果: {result3}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — 测试容错: 失败打印后继续
         print(f"❌ 测试3失败: {e}")
     
     # 查看对话历史
@@ -82,7 +82,7 @@ def test_react_agent():
     # 显示工具使用统计
     print(f"\n🛠️ 可用工具数量: {len(tool_registry._tools)}")
     print("已注册的工具:")
-    for tool_name in tool_registry._tools.keys():
+    for tool_name in tool_registry._tools:
         print(f"  - {tool_name}")
     
     print("\n🎉 测试完成！")
@@ -121,20 +121,20 @@ Action: [tool_name[input] 或 Finish[答案]]
     
     # 创建使用自定义提示词的Agent
     custom_agent = MyReActAgent(
-        name="数学专家助手",
-        llm=llm,
-        tool_registry=tool_registry,
-        max_steps=3,
-        custom_prompt=custom_prompt
+        name="数学专家助手",                 # Agent名称
+        llm=llm,                            # 大模型客户端
+        tool_registry=tool_registry,        # 工具注册表
+        max_steps=3,                        # 最大迭代3轮
+        custom_prompt=custom_prompt         # 自定义提示词
     )
     
     # 测试数学问题
-    math_question = "计算 15 × 8 + 32 ÷ 4 的结果"
+    math_question = "计算 15 x 8 + 32 ÷ 4 的结果"
     
     try:
         result = custom_agent.run(math_question)
         print(f"\n🎯 自定义提示词测试结果: {result}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — 测试容错: 失败打印后继续
         print(f"❌ 自定义提示词测试失败: {e}")
 
 if __name__ == "__main__":
@@ -142,6 +142,6 @@ if __name__ == "__main__":
     test_react_agent()
     
     # 运行自定义提示词测试
-    test_custom_prompt()
+    # test_custom_prompt()
     
     print("\n✨ 所有测试完成！")

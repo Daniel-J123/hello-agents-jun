@@ -1,8 +1,10 @@
 # my_calculator_tool.py
 import ast
-import operator
 import math
+import operator
+
 from hello_agents import ToolRegistry
+
 
 def my_calculate(expression: str) -> str:
     """简单的数学计算函数"""
@@ -44,9 +46,8 @@ def _eval_node(node, operators, functions):
         if func_name in functions:
             args = [_eval_node(arg, operators, functions) for arg in node.args]
             return functions[func_name](*args)
-    elif isinstance(node, ast.Name):
-        if node.id in functions:
-            return functions[node.id]
+    elif isinstance(node, ast.Name) and node.id in functions:
+        return functions[node.id]
 
 def create_calculator_registry():
     """创建包含计算器的工具注册表"""
