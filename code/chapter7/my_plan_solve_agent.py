@@ -170,7 +170,7 @@ class MyPlanAndSolveAgent(PlanAndSolveAgent):
 
         # ---- 3. 执行计划(异常容错: 一步崩溃返回诊断, 而不是向上抛)----
         try:
-            final_answer = self.executor.execute(input_text, plan, **kwargs)
+            final_answer = self.executor.make_execute(input_text, plan, **kwargs)
         except Exception as e:  # noqa: BLE001 — 执行失败应返回诊断信息而非中断程序
             final_answer = f"计划执行中断: {e}"
             print(f"❌ {final_answer}")
